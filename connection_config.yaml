@@ -1,0 +1,19 @@
+ssh-connection:
+  host: ${SSH_HOST}
+  port: ${SSH_PORT}
+  user: ${SSH_USER}
+  password: ${SSH_PASS}
+
+deploy-items:
+  - name: time-report-app # имя для отображения в логах деплоя
+    dir-path: ~/time-report-app #path on remote server
+    git-path: https://github.com/evsyukoov/time-report-app.git
+    need-deploy: true
+  - name: geo-points-bot
+    dir-path: ~/GeoPointsBot #path on remote server
+    git-path: https://github.com/evsyukoov/GeoPointsBot.git
+    need-deploy: false
+  - name: cartographic-app
+    dir-path: ~/CartographicApp2 #path on remote server
+    git-path: https://github.com/evsyukoov/CartographicApp.git
+    need-deploy: false
