@@ -1,3 +1,5 @@
+import os
+
 from fabric import *
 import yaml
 import xml.etree.ElementTree
@@ -16,12 +18,6 @@ def test_basic_command(conn):
     if 'Linux' in uname.stdout:
         command = "pwd"
         return conn.run(command).stdout.strip()
-
-
-def filter_deploy_items(items):
-    for i in items:
-        if not i['need-deploy']:
-            deploy_items.remove(i)
 
 
 def open_connection(settings):
@@ -98,6 +94,7 @@ def deploy(item, conn):
         tmp_pom.write(res)
         tmp_pom.close()
         maven_item = prepare_installation_info(tmp_pom, conn)
+        os.remove(tmp_pom.name)
         kill_running_installations(maven_item.modules, conn)
         print("3. Kill running installations ------------------- ✅")
         # TODO запуск новой версии в фоне
@@ -108,8 +105,7 @@ if __name__ == '__main__':
     ssh_connection_settings = templates['ssh-connection']
     connection = open_connection(ssh_connection_settings)
     test_basic_command(connection)
-    deploy_items = templates['deploy-items']
-    filter_deploy_items(deploy_items)
+    deploy_items = list(filter(lambda it: (it['need-deploy']), templates['deploy-items']))
 
     for item in deploy_items:
         deploy(deploy_items[0], connection)
