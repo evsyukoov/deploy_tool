@@ -6,6 +6,8 @@ import xml.etree.ElementTree
 import xml.dom.minidom
 
 from maven_item import MavenItem
+
+
 # Test vpn_server by using ~/.ssh/config
 # conf = Config()
 # conn1 = Connection(config=conf, host='vpn_server')
@@ -43,7 +45,8 @@ def prepare_installation_info(pom, conn):
             for elem in elements:
                 module = elem.firstChild.data
                 # если у модуля нет mainClass то запускать его будет не нужно
-                command = "cat '{module}/pom.xml'".format(module=module) + " | grep 'mainClass'" #grep exitCode==1, если ничего нет в stdout!
+                command = "cat '{module}/pom.xml'".format(
+                    module=module) + " | grep 'mainClass'"  # grep exitCode==1, если ничего нет в stdout!
                 res = conn.run(command, warn=True)
                 if res.return_code == 0:
                     modules.append(elem.firstChild.data)
@@ -53,7 +56,7 @@ def prepare_installation_info(pom, conn):
 
 def kill_running_installations(jar_names, conn):
     for name in jar_names:
-        command = "ps aux | grep {name} | grep -v grep | sed 's/   */ /g' | cut -d ' '  -f2 | head -n 1"\
+        command = "ps aux | grep {name} | grep -v grep | sed 's/   */ /g' | cut -d ' '  -f2 | head -n 1" \
             .format(name=name)
         res = conn.run(command, warn=True)
         if res.return_code == 0 and res.stdout != "":
@@ -65,28 +68,39 @@ def kill_running_installations(jar_names, conn):
             print("3. No running installation of {name} on server".format(name=name))
 
 
+def start_new_installation(maven_item, conn):
+    if maven_item.is_several_modules:
+        for it in maven_item.modules:
+            with (conn.cd("{module_name}".format(module_name=it))):
+                # делаем так поскольку не знаем версию джарника, лучше брать из pom и знать какой джарник будет лежать
+                find_jar_command = "ls target | egrep '{module_name}.*.jar$'".format(module_name=it)
+                compiled_jar = conn.run(find_jar_command).stdout.strip()
+                start_jar = "java -jar target/{jar_name}>/dev/null 2>&1".format(jar_name=compiled_jar)
+                conn.run(start_jar)
+
+
+
 def deploy(item, conn):
     print("Start build {name} project".format(name=item['name']))
     print("-------------------------------------------------")
     with (conn.cd(item['dir-path'])):
-        git_pull_command = "git pull"
-        res = conn.run(git_pull_command)
-        if not res.failed:
-            print("1. Git pull project ------------------- ✅")
-        else:
-            print("1. Git pull project ------------------- 🚫")
-            print("Cause: {reason}".format(reason=res.stderr))
-            return False
-
-        build_command = "mvn clean package"
-        res = conn.run(build_command)
-        if not res.failed:
-            print("2. Build project ------------------- ✅")
-        else:
-            print("2. Build project ------------------- 🚫")
-            print("Cause: {reason}".format(reason=res.stderr))
-            return False
-
+        # git_pull_command = "git pull"
+        # res = conn.run(git_pull_command)
+        # if not res.failed:
+        #     print("1. Git pull project ------------------- ✅")
+        # else:
+        #     print("1. Git pull project ------------------- 🚫")
+        #     print("Cause: {reason}".format(reason=res.stderr))
+        #     return False
+        #
+        # build_command = "mvn clean package"
+        # res = conn.run(build_command)
+        # if not res.failed:
+        #     print("2. Build project ------------------- ✅")
+        # else:
+        #     print("2. Build project ------------------- 🚫")
+        #     print("Cause: {reason}".format(reason=res.stderr))
+        #     return False
 
         cat_command = "cat pom.xml"
         res = conn.run(cat_command).stdout
@@ -95,9 +109,10 @@ def deploy(item, conn):
         tmp_pom.close()
         maven_item = prepare_installation_info(tmp_pom, conn)
         os.remove(tmp_pom.name)
-        kill_running_installations(maven_item.modules, conn)
-        print("3. Kill running installations ------------------- ✅")
-        # TODO запуск новой версии в фоне
+        #kill_running_installations(maven_item.modules, conn)
+        #print("3. Kill running installations ------------------- ✅")
+        start_new_installation(maven_item, conn)
+        print("4. Start new installations ------------------- ✅")
 
 
 if __name__ == '__main__':
